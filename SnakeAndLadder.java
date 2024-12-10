@@ -13,16 +13,12 @@ class Snake {
         return start;
     }
 
-    public void setStart(int start) {
-        this.start = start;
-    }
-
     public int getEnd() {
         return end;
     }
 
-    public void setEnd(int end) {
-        this.end = end;
+    public boolean isValid() {
+        return start > end; // A snake must have a start position greater than its end
     }
 }
 
@@ -42,17 +38,21 @@ class Ladder {
     public int getEnd() {
         return end;
     }
+
+    public boolean isValid() {
+        return start < end; // A ladder must have a start position less than its end
+    }
 }
 
 class Player {
     private String name;
     private int position;
-    private boolean isWinner;
+    private boolean hasShield;
 
     public Player(String name) {
         this.name = name;
-        this.position = 0; // Players start at position 0
-        this.isWinner = false;
+        this.position = 1;  // Players start at position 1
+        this.hasShield = false;
     }
 
     public String getName() {
@@ -63,166 +63,225 @@ class Player {
         return position;
     }
 
-    public boolean isWinner() {
-        return isWinner;
+    public boolean hasShield() {
+        return hasShield;
+    }
+
+    public void pickShield() {
+        this.hasShield = true;
+    }
+
+    public void useShield() {
+        this.hasShield = false;
     }
 
     public void moveTo(int newPosition) {
         this.position = newPosition;
     }
-
-    public void declareWinner() {
-        this.isWinner = true;
-    }
 }
 
 class Dice {
-    private final Random random;
+    private Random random;
+    private int diceType;
 
     public Dice() {
-        this.random = new Random();
+        random = new Random();
+        this.diceType = 1;  // Default unbiased dice
+    }
+
+    public void setDiceType(int diceType) {
+        this.diceType = diceType;
     }
 
     public int roll() {
-        return random.nextInt(6) + 1; // Rolls a number between 1 and 6
+        switch (diceType) {
+            case 1: // Unbiased dice (normal dice)
+                return random.nextInt(6) + 1;
+            case 2: // Biased dice (more likely to roll higher numbers)
+                return random.nextInt(4) + 3;  // Biased towards 3-6
+            case 3: // Unfair dice (always rolls 1)
+                return 1;
+            default:
+                return random.nextInt(6) + 1;  // Default to unbiased dice
+        }
     }
 }
 
 class Board {
-    private final int size;
-    private final Map<Integer, Integer> transitions; // Maps start -> end for snakes/ladders
+    private int size;
+    private Map<Integer, Integer> transitions; // Maps start -> end (snakes & ladders)
+    private int shieldPosition;
 
     public Board(int size) {
         this.size = size;
         this.transitions = new HashMap<>();
-    }
-
-    public int getSize() {
-        return size;
+        this.shieldPosition = -1;
     }
 
     public void addSnake(Snake snake) {
-        if (snake.getStart() > snake.getEnd()) { // Validating snake position
+        if (snake.isValid()) {
             transitions.put(snake.getStart(), snake.getEnd());
         }
     }
 
     public void addLadder(Ladder ladder) {
-        if (ladder.getStart() < ladder.getEnd()) { // Validating ladder position
+        if (ladder.isValid()) {
             transitions.put(ladder.getStart(), ladder.getEnd());
         }
     }
 
     public int getDestination(int position) {
-        return transitions.getOrDefault(position, position); // Returns destination if a transition exists
-    }
-}
-
-class Game {
-    private final Board board;
-    private final Dice dice;
-    private final List<Player> players;
-    private final List<Player> winners;
-
-    public Game(Board board, Dice dice, List<Player> players) {
-        this.board = board;
-        this.dice = dice;
-        this.players = players;
-        this.winners = new ArrayList<>();
+        return transitions.getOrDefault(position, position);
     }
 
-    public void startGame() {
-        System.out.println("Game Started!");
+    public void setShieldPosition(int position) {
+        this.shieldPosition = position;
+    }
 
-        int finalPosition = board.getSize(); // Winning position
-
-        while (winners.size() < players.size()) {
-            for (Player player : players) {
-                if (player.isWinner()) continue; // Skip if already a winner
-
-                int diceRoll = dice.roll();
-                System.out.println(player.getName() + " rolled a " + diceRoll);
-
-                int currentPosition = player.getPosition();
-                int tentativePosition = currentPosition + diceRoll;
-
-                if (tentativePosition > finalPosition) {
-                    System.out.println(player.getName() + " exceeded the final position. Needs " + (finalPosition - currentPosition) + " to win.");
-                    continue;
-                }
-
-                int destination = board.getDestination(tentativePosition);
-                if (destination < tentativePosition) {
-                    System.out.println(player.getName() + " hit a snake! Sliding down to " + destination);
-                } else if (destination > tentativePosition) {
-                    System.out.println(player.getName() + " climbed a ladder! Moving up to " + destination);
-                }
-
-                player.moveTo(destination);
-                System.out.println(player.getName() + " moved to position " + player.getPosition());
-
-                if (player.getPosition() == finalPosition) {
-                    player.declareWinner();
-                    winners.add(player);
-                    System.out.println(player.getName() + " has reached the final position and is a winner!");
-                }
-            }
-        }
-
-        System.out.println("Game Over! Winners:");
-        for (int i = 0; i < winners.size(); i++) {
-            System.out.println((i + 1) + ". " + winners.get(i).getName());
-        }
+    public int getShieldPosition() {
+        return shieldPosition;
     }
 }
 
 public class SnakeAndLadder {
-    public static void main(String[] args) {
-        Scanner scanner = new Scanner(System.in);
+    private static final Scanner scanner = new Scanner(System.in);
 
-        System.out.print("Enter board size: ");
-        int boardSize = scanner.nextInt();
-        if (boardSize <= 1) {
-            System.out.println("Board size must be greater than 1.");
-            return;
+    private static int getValidInput(String prompt) {
+        int value = -1;
+        while (value <= 0) {
+            System.out.print(prompt);
+            try {
+                value = scanner.nextInt();
+                if (value <= 0) {
+                    System.out.println("Please enter a positive number.");
+                }
+            } catch (InputMismatchException e) {
+                System.out.println("Invalid input. Please enter an integer.");
+                scanner.next(); // Clear the invalid input
+            }
         }
+        return value;
+    }
 
-        System.out.print("Enter number of snakes: ");
-        int numSnakes = scanner.nextInt();
+    private static int generateValidShieldPosition(Board board, int boardSize) {
+        Random random = new Random();
+        int shieldPosition;
+        do {
+            shieldPosition = random.nextInt(boardSize - 1) + 1;
+        } while (board.getDestination(shieldPosition) != shieldPosition); // Ensure shield not on a snake or ladder
+        return shieldPosition;
+    }
 
-        System.out.print("Enter number of ladders: ");
-        int numLadders = scanner.nextInt();
+    public static void main(String[] args) {
+        // Get valid inputs
+        int boardSize = getValidInput("Enter board size: ");
+        int numSnakes = getValidInput("Enter number of snakes: ");
+        int numLadders = getValidInput("Enter number of ladders: ");
+        int numPlayers = getValidInput("Enter number of players: ");
 
+        // Create the board
         Board board = new Board(boardSize);
 
-        System.out.println("Enter snake positions (start end): ");
+        // Adding snakes using Collections
+        List<Snake> snakes = new ArrayList<>();
         for (int i = 0; i < numSnakes; i++) {
-            int start = scanner.nextInt();
-            int end = scanner.nextInt();
-            board.addSnake(new Snake(start, end));
+            int start = getValidInput("Enter snake start position: ");
+            int end = getValidInput("Enter snake end position: ");
+            Snake snake = new Snake(start, end);
+            if (snake.isValid()) {
+                board.addSnake(snake);
+                snakes.add(snake);
+            } else {
+                System.out.println("Invalid snake. Skipping...");
+            }
         }
 
-        System.out.println("Enter ladder positions (start end): ");
+        // Adding ladders using Collections
+        List<Ladder> ladders = new ArrayList<>();
         for (int i = 0; i < numLadders; i++) {
-            int start = scanner.nextInt();
-            int end = scanner.nextInt();
-            board.addLadder(new Ladder(start, end));
+            int start = getValidInput("Enter ladder start position: ");
+            int end = getValidInput("Enter ladder end position: ");
+            Ladder ladder = new Ladder(start, end);
+            if (ladder.isValid()) {
+                board.addLadder(ladder);
+                ladders.add(ladder);
+            } else {
+                System.out.println("Invalid ladder. Skipping...");
+            }
         }
 
-        System.out.print("Enter number of players: ");
-        int numPlayers = scanner.nextInt();
+        // Generate shield position using Collections
+        int shieldPosition = generateValidShieldPosition(board, boardSize);
+        board.setShieldPosition(shieldPosition);
 
-        System.out.println("Enter player names: ");
+        // Create players using Collections
         List<Player> players = new ArrayList<>();
         for (int i = 0; i < numPlayers; i++) {
-            String name = scanner.next();
-            players.add(new Player(name));
+            System.out.print("Enter name for player " + (i + 1) + ": ");
+            String playerName = scanner.next();
+            players.add(new Player(playerName));
         }
 
+        // Select Dice Type
+        System.out.println("Select Dice Type:");
+        System.out.println("1: Unbiased Dice");
+        System.out.println("2: Biased Dice");
+        System.out.println("3: Unfair Dice");
+        int diceChoice = getValidInput("Enter your choice (1/2/3): ");
         Dice dice = new Dice();
-        Game game = new Game(board, dice, players);
-        game.startGame();
+        dice.setDiceType(diceChoice);
 
+        // Start the game
+        List<Player> winners = new ArrayList<>();
+        while (winners.isEmpty()) {
+            for (Player player : players) {
+                if (winners.contains(player)) {
+                    continue; // Skip already winner players
+                }
+
+                // Roll the dice
+                int diceRoll = dice.roll();
+                System.out.println(player.getName() + " rolled a " + diceRoll);
+
+                int oldPosition = player.getPosition();
+                int tentativePosition = oldPosition + diceRoll;
+
+                if (tentativePosition > boardSize) {
+                    tentativePosition = oldPosition; // Stay in the same position if it exceeds the board size
+                    System.out.println(player.getName() + " exceeds the board size and stays at " + oldPosition);
+                }
+
+                // Check for shield pickup
+                if (tentativePosition == board.getShieldPosition() && !player.hasShield()) {
+                    player.pickShield();
+                    System.out.println(player.getName() + " picked up a shield!");
+                }
+
+                // Check for snakes or ladders
+                int finalPosition = board.getDestination(tentativePosition);
+
+                if (finalPosition != tentativePosition) {
+                    System.out.println(player.getName() + " encountered a snake or ladder!");
+                }
+
+                player.moveTo(finalPosition);
+                System.out.println(player.getName() + " moved to position " + player.getPosition());
+
+                // Check if the player reached the final position (100 or board size)
+                if (player.getPosition() == boardSize) {
+                    winners.add(player);
+                    System.out.println(player.getName() + " has won the game!");
+                }
+            }
+        }
+
+        // Display winners
+        System.out.println("\nGame Over! Winners:");
+        for (Player winner : winners) {
+            System.out.println(winner.getName() + " at position " + winner.getPosition());
+        }
+
+        // Close the scanner
         scanner.close();
     }
 }
